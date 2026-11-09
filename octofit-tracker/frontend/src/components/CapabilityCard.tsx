@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { getJson } from '../api/client.js';
 
 type ApiItem = Record<string, unknown>;
 type State =
@@ -9,8 +8,7 @@ type State =
 type Props = {
   title: string;
   description: string;
-  endpoint: string;
-  responseKey: string;
+  loadItems: () => Promise<unknown[]>;
   emptyMessage: string;
 };
 
@@ -26,16 +24,15 @@ function formatValue(value: unknown): string {
   return JSON.stringify(value) ?? '';
 }
 
-export function CapabilityCard({ title, description, endpoint, responseKey, emptyMessage }: Props) {
+export function CapabilityCard({ title, description, loadItems, emptyMessage }: Props) {
   const [state, setState] = useState<State>({ status: 'loading' });
 
   useEffect(() => {
     let cancelled = false;
     setState({ status: 'loading' });
 
-    getJson<Record<string, unknown>>(endpoint)
-      .then((response) => {
-        const values = response[responseKey];
+    loadItems()
+      .then((values) => {
         if (!Array.isArray(values)) {
           throw new Error(`Invalid ${title.toLowerCase()} response`);
         }
@@ -57,7 +54,7 @@ export function CapabilityCard({ title, description, endpoint, responseKey, empt
     return () => {
       cancelled = true;
     };
-  }, [endpoint, responseKey, title]);
+  }, [loadItems, title]);
 
   return <section className="card h-100" aria-busy={state.status === 'loading'}>
     <div className="card-body">
