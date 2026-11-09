@@ -69,6 +69,10 @@ export async function createTeam(input: unknown) {
 
   const team = await Team.create({ name, mascot, members: memberIds });
   if (memberIds.length > 0) {
+    await Team.updateMany(
+      { _id: { $ne: team._id }, members: { $in: memberIds } },
+      { $pull: { members: { $in: memberIds } } },
+    );
     await User.updateMany({ _id: { $in: memberIds } }, { $set: { team: team._id } });
   }
   return team;
@@ -96,14 +100,14 @@ export async function suggestWorkouts(userEmail: string) {
   }
 
   const latestActivity = await Activity.findOne({ user: user._id }).sort({ occurredAt: -1 }).lean();
-  const focus = user.fitnessGoal || latestActivity?.type;
-  const workouts = await Workout.find(focus ? { focus } : {}).lean();
+  const focuses = [...new Set([user.fitnessGoal, latestActivity?.type].filter((focus): focus is string => Boolean(focus)))];
+  const workouts = await Workout.find({ focus: { $in: focuses } }).lean();
 
   return workouts.map((workout) => ({
     ...workout,
-    reason: latestActivity
-      ? `Matches your ${latestActivity.type} activity and ${focus} goal`
-      : `Matches your ${focus} goal`,
+    reason: latestActivity && workout.focus === latestActivity.type
+      ? `Matches your ${latestActivity.type} activity`
+      : `Matches your ${user.fitnessGoal} goal`,
   }));
 }
 
